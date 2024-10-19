@@ -1,107 +1,76 @@
 <?php
-require 'tcpdf/tcpdf.php';
+require_once('tcpdf/tcpdf.php'); // Include TCPDF library
 
-// Suppress warnings that cause premature output
-error_reporting(0); 
-// or configure to only log errors without displaying them
-// ini_set('display_errors', 0);
-// ini_set('log_errors', 1);
+// Get the filter from POST request
+$statusFilter = isset($_POST['statusFilter']) ? $_POST['statusFilter'] : 'All';
 
-// Create new PDF document
+// Fetch user data from the API
+$apiUrl = 'https://nodejs-firebase-4dhi.onrender.com/users';
+$jsonData = @file_get_contents($apiUrl);
+$data = json_decode($jsonData, true);
+
+// Filter nurses based on the selected specialization filter
+$nurses = array_filter($data, function ($user) {
+    return isset($user['role']) && $user['role'] === 'nurse';
+});
+
+if ($statusFilter !== 'All') {
+    $nurses = array_filter($nurses, function ($nurse) use ($statusFilter) {
+        return isset($nurse['specialization']) && $nurse['specialization'] === $statusFilter;
+    });
+}
+
+// Initialize TCPDF
 $pdf = new TCPDF();
 
-// Set document information
+// Set PDF document properties
 $pdf->SetCreator(PDF_CREATOR);
-$pdf->SetAuthor('Your Name');
-$pdf->SetTitle('User Report');
-$pdf->SetSubject('User Data');
-$pdf->SetKeywords('TCPDF, PDF, report, user data');
+$pdf->SetAuthor('Rakshak');
+$pdf->SetTitle('Nurse Report');
+$pdf->SetSubject('Nurse Report');
+$pdf->SetKeywords('PDF, report, nurses');
+
+// Set default header and footer
+$pdf->setPrintHeader(false);
+$pdf->setPrintFooter(false);
 
 // Add a page
 $pdf->AddPage();
 
-// Set font for header
-$pdf->SetFont('helvetica', 'B', 16);
-$pdf->Write(0, 'User Report', '', 0, 'C', true, 0, false, false, 0);
+// Set content
+$html = '<h1>Nurse Report</h1>';
+$html .= '<h3>Specialization: ' . htmlspecialchars($statusFilter) . '</h3>';
+$html .= '<table border="1" cellpadding="4">';
+$html .= '<thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Phone Number</th><th>Specialization</th><th>Experience</th><th>Charges</th><th>Education</th><th>License Number</th><th>Aadhar Verified</th></tr></thead>';
+$html .= '<tbody>';
 
-// Set font for table content
-$pdf->SetFont('helvetica', '', 12);
-
-// Start HTML for table
-$html = '<table border="1" cellspacing="3" cellpadding="4">
-            <thead>
-                <tr style="background-color:#f2f2f2;">
-                    <th>ID</th>
-                    <th>Name</th>
-                    <th>Email</th>
-                    <th>IP</th>
-                    <th>Location</th>
-                    <th>Status</th>
-                    <th>Registration Date</th>
-                    <th>Version</th>
-                </tr>
-            </thead>
-            <tbody>';
-
-// Fetch user data from API with error handling
-$apiUrl = 'https://nodejs-firebase-4dhi.onrender.com/users';
-$jsonData = file_get_contents($apiUrl);
-
-if ($jsonData === false) {
-    // Add a row to indicate failure in data retrieval
-    $html .= '<tr><td colspan="8">Failed to retrieve data.</td></tr>';
-    $totalUsers = count($data);
-} else {
-    $data = json_decode($jsonData, true);
-
-    // Get filter status from POST request
-    $statusFilter = isset($_POST['statusFilter']) ? filter_var($_POST['statusFilter'], FILTER_SANITIZE_STRING) : '';
-
-    // Filter users based on the selected status
-    $filteredUsers = array_filter($data, function ($user) use ($statusFilter) {
-        // Check if status key exists to prevent undefined array key warning
-        if (!isset($user['status'])) {
-            return false; // Skip users without a status key
-        }
-        if ($statusFilter === '') {
-            return true; // No filter, return all users
-        }
-        return $user['status'] === $statusFilter;
-    });
-
-    // Display the filtered or all users
-    if (!empty($filteredUsers)) {
-        foreach ($filteredUsers as $serialNumber => $user) {
-            // Check and assign default values to avoid undefined array key issues
-            $userName = isset($user['name']) ? htmlspecialchars($user['name']) : 'N/A';
-            $userEmail = isset($user['email']) ? htmlspecialchars($user['email']) : 'N/A';
-            $userIp = isset($user['ip']) ? htmlspecialchars($user['ip']) : 'N/A';
-            $userLocation = isset($user['location']['country']) ? htmlspecialchars($user['location']['country']) : 'N/A';
-            $userStatus = isset($user['status']) ? htmlspecialchars($user['status']) : 'N/A';
-            $userSignupDate = isset($user['signupDate']) ? htmlspecialchars(date('Y-m-d', strtotime($user['signupDate']))) : 'N/A';
-            $userVersion = isset($user['__v']) ? htmlspecialchars($user['__v']) : 'N/A';
-
-            $html .= '<tr>
-                        <td>' . ($serialNumber + 1) . '</td>
-                        <td>' . $userName . '</td>
-                        <td>' . $userEmail . '</td>
-                        <td>' . $userIp . '</td>
-                        <td>' . $userLocation . '</td>
-                        <td>' . $userStatus . '</td>
-                        <td>' . $userSignupDate . '</td>
-                        <td>' . $userVersion . '</td>
-                      </tr>';
-        }
-    } else {
-        $html .= '<tr><td colspan="8">No data found for the selected filter.</td></tr>';
+$sr_no = 0;
+if (!empty($nurses)) {
+    foreach ($nurses as $nurse) {
+        $html .= '<tr>';
+        $html .= '<td>' . ++$sr_no . '</td>';
+        $html .= '<td>' . htmlspecialchars($nurse['display_name']) . '</td>';
+        $html .= '<td>' . htmlspecialchars($nurse['email']) . '</td>';
+        $html .= '<td>' . htmlspecialchars($nurse['phone_number']) . '</td>';
+        $html .= '<td>' . htmlspecialchars($nurse['specialization']) . '</td>';
+        $html .= '<td>' . htmlspecialchars($nurse['experience']) . ' years</td>';
+        $html .= '<td>' . htmlspecialchars($nurse['charges']) . '</td>';
+        $html .= '<td>' . htmlspecialchars($nurse['education']) . '</td>';
+        $html .= '<td>' . htmlspecialchars($nurse['license_number']) . '</td>';
+        $html .= '<td>' . ($nurse['aadhar_verified'] ? 'Yes' : 'No') . '</td>';
+        $html .= '</tr>';
     }
+} else {
+    $html .= '<tr><td colspan="10" align="center">No nurses found.</td></tr>';
 }
 
 $html .= '</tbody></table>';
 
-// Output the HTML content
+// Output content to PDF
 $pdf->writeHTML($html, true, false, true, false, '');
 
-// Close and output PDF document for download
-$pdf->Output('user_report.pdf', 'D');
+// Close and output PDF document
+$pdf->Output('nurse_report.pdf', 'D'); // D = force download
+
+exit;
 ?>

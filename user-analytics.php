@@ -15,30 +15,46 @@ $totalFemaleUsers = 0;
 if ($jsonData !== false) {
     $data = json_decode($jsonData, true);
 
-    // Filter the data to only include users with the role 'user'
+    // Filter by role 'user'
     $usersWithRoleUser = array_filter($data, function ($user) {
         return isset($user['role']) && $user['role'] === 'user';
     });
 
-    // Filter the data to only include critical users where criticalPatients is the string "true"
+    // Filter by critical patients
     $criticalUsers = array_filter($data, function ($user) {
         return isset($user['criticalPatients']) && $user['criticalPatients'] === "true";
     });
+
+    // Handle gender-based filtering and count male and female users
+    $selectedFilter = isset($_GET['filter']) ? $_GET['filter'] : 'all';
+    if ($selectedFilter == 'male') {
+        $usersWithRoleUser = array_filter($usersWithRoleUser, function ($user) {
+            return isset($user['gender']) && strtolower($user['gender']) === 'male';
+        });
+    } elseif ($selectedFilter == 'female') {
+        $usersWithRoleUser = array_filter($usersWithRoleUser, function ($user) {
+            return isset($user['gender']) && strtolower($user['gender']) === 'female';
+        });
+    } elseif ($selectedFilter == 'critical') {
+        $usersWithRoleUser = array_filter($usersWithRoleUser, function ($user) {
+            return isset($user['criticalPatients']) && $user['criticalPatients'] === "true";
+        });
+    }
+
+    // Calculate total male and female users after filtering
+    foreach ($usersWithRoleUser as $user) {
+        if (isset($user['gender']) && strtolower($user['gender']) === 'male') {
+            $totalMaleUsers++;
+        } elseif (isset($user['gender']) && strtolower($user['gender']) === 'female') {
+            $totalFemaleUsers++;
+        }
+    }
 
     // Calculate the total number of users with the role 'user'
     $totalUsersWithRoleUser = count($usersWithRoleUser);
 
     // Calculate the total number of critical users
     $totalCriticalUsers = count($criticalUsers);
-
-    // Calculate total male and female users and their percentages
-    foreach ($usersWithRoleUser as $user) {
-        if (isset($user['gender']) && strtolower($user['gender']) === 'Male' || 'male') {
-            $totalMaleUsers++;
-        } elseif (isset($user['gender']) && strtolower($user['gender']) === 'Female' || 'female') {
-            $totalFemaleUsers++;
-        }
-    }
 }
 ?>
 <!doctype html>
@@ -328,6 +344,9 @@ if ($jsonData !== false) {
                                         <a href="user-analytics.php" class="nav-link" data-key="t-analytics">User Analytics</a>
                                     </li>
                                     <li class="nav-item">
+                                        <a href="flow.php" class="nav-link" data-key="t-analytics">Nurse Activity Flow </a>
+                                    </li>
+                                    <li class="nav-item">
                                         <a href="chatbot.php" class="nav-link" data-key="t-analytics">Chat Assistant</a>
                                     </li>
 
@@ -504,31 +523,20 @@ if ($jsonData !== false) {
                                     <div class="flex-shrink-0 d-flex align-items-center">
                                         <!-- Filter Form -->
                                         <form method="GET" action="">
-                                            <label for="statusFilter" class="me-2">Filter by Status:</label>
-                                            <select name="statusFilter" id="statusFilter"
-                                                class="form-select form-select-sm w-auto d-inline-block me-3">
-                                                <option value=""
-                                                    <?= (isset($_GET['statusFilter']) && $_GET['statusFilter'] == '') ? 'selected' : ''; ?>>
-                                                    All</option>
-                                                <option value="Authorized"
-                                                    <?= (isset($_GET['statusFilter']) && $_GET['statusFilter'] == 'Authorized') ? 'selected' : ''; ?>>
-                                                    Authorized
-                                                </option>
-                                                <option value="Unauthorized"
-                                                    <?= (isset($_GET['statusFilter']) && $_GET['statusFilter'] == 'Unauthorized') ? 'selected' : ''; ?>>
-                                                    Unauthorized
-                                                </option>
+                                            <label for="filter">Filter by:</label>
+                                            <select name="filter" id="filter" class="form-select form-select-sm w-auto d-inline-block me-3">
+                                                <option value="all" <?= (isset($_GET['filter']) && $_GET['filter'] == 'all') ? 'selected' : ''; ?>>All</option>
+                                                <option value="male" <?= (isset($_GET['filter']) && $_GET['filter'] == 'male') ? 'selected' : ''; ?>>Male</option>
+                                                <option value="female" <?= (isset($_GET['filter']) && $_GET['filter'] == 'female') ? 'selected' : ''; ?>>Female</option>
+                                                <option value="critical" <?= (isset($_GET['filter']) && $_GET['filter'] == 'critical') ? 'selected' : ''; ?>>Critical Patients</option>
                                             </select>
-
                                             <button type="submit" class="btn btn-primary btn-sm">Apply Filter</button>
                                         </form>
 
-                                        <!-- PDF Generation Form -->
-                                        <form method="post" action="generate_report.php" class="ms-3">
-                                            <input type="hidden" name="statusFilter"
-                                                value="<?= isset($_GET['statusFilter']) ? $_GET['statusFilter'] : '' ?>">
+                                        <form method="post" action="user-analytics-download.php" class="ms-3">
+                                            <input type="hidden" name="filter" value="<?= isset($_GET['filter']) ? $_GET['filter'] : 'all' ?>">
                                             <button type="submit" class="btn btn-soft-info btn-sm">
-                                                <i class="ri-file-list-3-line align-middle"></i> Generate PDF Report
+                                                <i class="ri-file-list-3-line align-middle"></i> Download CSV
                                             </button>
                                         </form>
                                     </div>
@@ -579,7 +587,7 @@ if ($jsonData !== false) {
                                                         $medicalHistory = is_array($user['medicalHistory']) ? implode(', ', $user['medicalHistory']) : $user['medicalHistory'];
                                                         $created_time = is_array($user['created_time']) ? implode(', ', $user['created_time']) : $user['created_time'];
 
-                                                                echo "<tr>
+                                                        echo "<tr>
                                                                     <td>" . $serialNo++ . "</td> <!-- Increment and display serial number -->
                                                                     <td>" . htmlspecialchars($display_name) . "</td>
                                                                     <td>" . htmlspecialchars($email) . "</td>

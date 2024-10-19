@@ -6,53 +6,55 @@ $apiUrl = 'https://nodejs-firebase-4dhi.onrender.com/users';
 $jsonData = @file_get_contents($apiUrl);
 
 // Initialize variables
-$totalNurses = 0;
+$totalUsersWithRoleUser = 0;
 $totalCriticalUsers = 0;
-$totalUsers = 0; // This will hold the count for users with the role 'user'
-$statusFilter = ''; // NEW: Initialize variable for status filter
-$filteredNurses = []; // NEW: Initialize variable for filtered nurses
+$usersWithRoleUser = [];
+$totalMaleUsers = 0;
+$totalFemaleUsers = 0;
 
 if ($jsonData !== false) {
     $data = json_decode($jsonData, true);
 
-    // Filter the data to only include nurses
-    $nurses = array_filter($data, function ($user) {
-        return isset($user['role']) && $user['role'] === 'nurse';
+    // Filter by role 'user'
+    $usersWithRoleUser = array_filter($data, function ($user) {
+        return isset($user['role']) && $user['role'] === 'user';
     });
 
-    // Filter the data to only include critical users where criticalPatients is the string "true"
+    // Filter by critical patients
     $criticalUsers = array_filter($data, function ($user) {
         return isset($user['criticalPatients']) && $user['criticalPatients'] === "true";
     });
 
-    // Filter the data to only include users with the role 'user'
-    $users = array_filter($data, function ($user) {
-        return isset($user['role']) && $user['role'] === 'user';
-    });
+    // Handle gender-based filtering and count male and female users
+    $selectedFilter = isset($_GET['filter']) ? $_GET['filter'] : 'all';
+    if ($selectedFilter == 'male') {
+        $usersWithRoleUser = array_filter($usersWithRoleUser, function ($user) {
+            return isset($user['gender']) && strtolower($user['gender']) === 'male';
+        });
+    } elseif ($selectedFilter == 'female') {
+        $usersWithRoleUser = array_filter($usersWithRoleUser, function ($user) {
+            return isset($user['gender']) && strtolower($user['gender']) === 'female';
+        });
+    } elseif ($selectedFilter == 'critical') {
+        $usersWithRoleUser = array_filter($usersWithRoleUser, function ($user) {
+            return isset($user['criticalPatients']) && $user['criticalPatients'] === "true";
+        });
+    }
 
-    // Calculate the total number of nurses
-    $totalNurses = count($nurses);
+    // Calculate total male and female users after filtering
+    foreach ($usersWithRoleUser as $user) {
+        if (isset($user['gender']) && strtolower($user['gender']) === 'male') {
+            $totalMaleUsers++;
+        } elseif (isset($user['gender']) && strtolower($user['gender']) === 'female') {
+            $totalFemaleUsers++;
+        }
+    }
+
+    // Calculate the total number of users with the role 'user'
+    $totalUsersWithRoleUser = count($usersWithRoleUser);
 
     // Calculate the total number of critical users
     $totalCriticalUsers = count($criticalUsers);
-
-    // Calculate the total number of users with the role 'user'
-    $totalUsers = count($users);
-
-    // NEW: Handle filter if the form was submitted
-    if (isset($_GET['statusFilter'])) {
-        $statusFilter = $_GET['statusFilter']; // NEW: Get the filter value
-        if ($statusFilter === 'All') {
-            $filteredNurses = $nurses; // Show all nurses if 'All' is selected
-        } else {
-            // NEW: Filter nurses based on specialization (e.g., Geriatric Nurse, Critical Care Nurse, etc.)
-            $filteredNurses = array_filter($nurses, function ($nurse) use ($statusFilter) {
-                return isset($nurse['specialization']) && $nurse['specialization'] === $statusFilter;
-            });
-        }
-    } else {
-        $filteredNurses = $nurses; // Default to showing all nurses if no filter is applied
-    }
 }
 ?>
 <!doctype html>
@@ -371,233 +373,73 @@ if ($jsonData !== false) {
                 <div class="container-fluid">
 
                     <!-- start page title -->
-                    <div class="row">
-
-                        <div class="col-12">
-                            <div classl̥="page-title-box d-sm-flex align-items-center justify-content-between">
-                                <h4 class="mb-sm-0">Nurse Analytics</h4>
-
-                                <div class="page-title-right">
-                                    <ol class="breadcrumb m-0">
-                                        <li class="breadcrumb-item"><a href="javascript: void(0);">Dashboards</a></li>
-                                        <li class="breadcrumb-item active">Analytics</li>
-                                    </ol>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <!-- end page title -->
 
                     <div class="row">
-                        <div class="col-xxl-12">
-                            <div class="d-flex flex-column h-100">
-                                <div class="row">
-                                    <div class="col-md-6">
-                                        <div class="card card-animate">
-                                            <div class="card-body">
-                                                <div class="d-flex justify-content-between">
-                                                    <div>
-                                                        <!-- Displaying the total number of users -->
-                                                        <div>
-                                                            <p class="fw-medium text-muted mb-0">Total Nurses</p>
-                                                            <h2 class="mt-4 ff-secondary fw-semibold">
-
-                                                                <!-- Dynamically insert total users in data-target and as the content of the span -->
-                                                                <span class="counter-value"
-                                                                    data-target="<?= $totalNurses ?>"><?= $totalNurses ?></span>
-                                                            </h2>
-                                                            <p class="mb-0 text-muted">
-                                                                <span class="badge bg-light text-danger mb-0">
-                                                                    <i class="ri-arrow-down-line align-middle"></i> 3.96 %
-                                                                </span> vs. previous month
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                    <div>
-                                                        <div class="avatar-sm flex-shrink-0">
-                                                            <span class="avatar-title bg-soft-info rounded-circle fs-2">
-                                                                <i data-feather="users" class="text-info"></i>
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div><!-- end card body -->
-                                        </div> <!-- end card-->
-                                    </div> <!-- end col-->
-
-                                    <div class="col-md-6">
-                                        <div class="card card-animate">
-                                            <div class="card-body">
-                                                <div class="d-flex justify-content-between">
-                                                    <div>
-                                                        <p class="fw-medium text-muted mb-0">Critical Patients</p>
-                                                        <h2 class="mt-4 ff-secondary fw-semibold">
-                                                            <span class="counter-value"
-                                                                data-target="<?= $totalCriticalUsers ?>"><?= $totalCriticalUsers ?></span>
-                                                        </h2>
-
-                                                        <p class="mb-0 text-muted">
-                                                            <span class="badge bg-light text-danger mb-0">
-                                                                <i class="ri-arrow-down-line align-middle"></i> 3.96 %
-                                                            </span> vs. previous month
-                                                        </p>
-                                                    </div>
-                                                    <div class="avatar-sm flex-shrink-0">
-                                                        <span class="avatar-title bg-soft-info rounded-circle fs-2">
-                                                            <i data-feather="users" class="text-info"></i>
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            </div><!-- end card body -->
-                                        </div> <!-- end card-->
-                                    </div> <!-- end col-->
-                                </div> <!-- end row-->
-
-                                <div class="row">
-                                    <div class="col-md-6">
-                                        <div class="card card-animate">
-                                            <div class="card-body">
-                                                <div class="d-flex justify-content-between">
-                                                    <div>
-                                                        <p class="fw-medium text-muted mb-0">Avg. Visit Duration</p>
-                                                        <h2 class="mt-4 ff-secondary fw-semibold"><span
-                                                                class="counter-value" data-target="5">0</span>m
-                                                            <span class="counter-value" data-target="40">0</span>sec
-                                                        </h2>
-                                                        <p class="mb-0 text-muted"><span
-                                                                class="badge bg-light text-danger mb-0"> <i
-                                                                    class="ri-arrow-down-line align-middle"></i> 0.24 %
-                                                            </span> vs. previous month</p>
-                                                    </div>
-                                                    <div>
-                                                        <div class="avatar-sm flex-shrink-0">
-                                                            <span class="avatar-title bg-soft-info rounded-circle fs-2">
-                                                                <i data-feather="clock" class="text-info"></i>
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div><!-- end card body -->
-                                        </div> <!-- end card-->
-                                    </div> <!-- end col-->
-
-                                    <div class="col-md-6">
-                                        <div class="card card-animate">
-                                            <div class="card-body">
-                                                <div class="d-flex justify-content-between">
-                                                    <div>
-                                                        <p class="fw-medium text-muted mb-0">Total Cured Patients</p>
-                                                        <h2 class="mt-4 ff-secondary fw-semibold"> <span class="counter-value"
-                                                                data-target="<?= $totalUsers ?>"><?= $totalUsers ?></span></h2>
-                                                        <p class="mb-0 text-muted"><span
-                                                                class="badge bg-light text-success mb-0"> <i
-                                                                    class="ri-arrow-up-line align-middle"></i> 7.05 %
-                                                            </span> vs. previous month</p>
-                                                    </div>
-                                                    <div>
-                                                        <div class="avatar-sm flex-shrink-0">
-                                                            <span class="avatar-title bg-soft-info rounded-circle fs-2">
-                                                                <i data-feather="external-link" class="text-info"></i>
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div><!-- end card body -->
-                                        </div> <!-- end card-->
-                                    </div> <!-- end col-->
-                                </div> <!-- end row-->
-                            </div>
-                        </div> <!-- end col-->
-                    </div> <!-- end row-->
-
-                    <div class="row">
-                        <div class="col-xl-12">
+                        <div class="col-lg-12">
                             <div class="card">
-                                <div class="card-header align-items-center d-flex">
-                                    <h4 class="card-title mb-0 flex-grow-1">All Nurses</h4>
-                                    <div class="flex-shrink-0 d-flex align-items-center">
-                                        <!-- NEW: Filter Form -->
-                                        <form method="GET" action="">
-                                            <label for="statusFilter" class="me-2">Filter by Specialization:</label>
-                                            <select name="statusFilter" id="statusFilter"
-                                                class="form-select form-select-sm w-auto d-inline-block me-3">
-                                                <option value="All" <?= ($statusFilter == 'All') ? 'selected' : ''; ?>>
-                                                    All</option>
-                                                <option value="Geriatric Nurse"
-                                                    <?= ($statusFilter == 'Geriatric Nurse') ? 'selected' : ''; ?>>
-                                                    Geriatric Nurse</option>
-                                                <option value="Critical Care Nurse"
-                                                    <?= ($statusFilter == 'Critical Care Nurse') ? 'selected' : ''; ?>>
-                                                    Critical Care Nurse</option>
-                                                <option value="Oncology Nurse"
-                                                    <?= ($statusFilter == 'Oncology Nurse') ? 'selected' : ''; ?>>
-                                                    Oncology Nurse</option>
-                                            </select>
-
-                                            <button type="submit" class="btn btn-primary btn-sm">Apply Filter</button>
-                                        </form>
-
-                                        <!-- Report generation form in Home.php -->
-                                        <form method="post" action="generate_report.php" class="ms-3">
-                                            <input type="hidden" name="statusFilter" value="<?= isset($_GET['statusFilter']) ? $_GET['statusFilter'] : '' ?>">
-                                            <button type="submit" class="btn btn-soft-info btn-sm">
-                                                <i class="ri-file-list-3-line align-middle"></i> Generate PDF Report
-                                            </button>
-                                        </form>
-
-
-                                    </div>
+                                <div class="card-header">
+                                    <h4 class="card-title mb-0">Patient Care Flowchart </h4>
                                 </div>
 
                                 <div class="card-body">
-                                    <div class="table-responsive table-card">
-                                        <table class="table table-bordered">
-                                            <thead class="text-muted table-light">
-                                                <tr>
-                                                    <th>ID</th>
-                                                    <th>Name</th>
-                                                    <th>Email</th>
-                                                    <th>Phone Number</th>
-                                                    <th>Specialization</th>
-                                                    <th>Experience</th>
-                                                    <th>Charges</th>
-                                                    <th>Education</th>
-                                                    <th>License Number</th>
-                                                    <th>Aadhar Verified</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                <?php
-                                                $sr_no = 0;
-                                                // NEW: Use filteredNurses array for displaying results
-                                                if (!empty($filteredNurses)) {
-                                                    foreach ($filteredNurses as $nurse) {
-                                                        echo "<tr>
-                                                            <td>" . htmlspecialchars(++$sr_no) . "</td>
-                                                            <td>" . htmlspecialchars($nurse['display_name']) . "</td>
-                                                            <td>" . htmlspecialchars($nurse['email']) . "</td>
-                                                            <td>" . htmlspecialchars($nurse['phone_number']) . "</td>
-                                                            <td>" . htmlspecialchars($nurse['specialization']) . "</td>
-                                                            <td>" . htmlspecialchars($nurse['experience']) . " years</td>
-                                                            <td>" . htmlspecialchars($nurse['charges']) . "</td>
-                                                            <td>" . htmlspecialchars($nurse['education']) . "</td>
-                                                            <td>" . htmlspecialchars($nurse['license_number']) . "</td>
-                                                            <td>" . ($nurse['aadhar_verified'] ? 'Yes' : 'No') . "</td>
-                                                        </tr>";
-                                                    }
-                                                } else {
-                                                    echo "<tr><td colspan='10' class='text-center'>No nurses found.</td></tr>";
-                                                }
-                                                ?>
-                                            </tbody>
-                                        </table>
+                                    <div class="hori-sitemap">
+                                        <ul class="list-unstyled mb-0">
+                                            <li class="p-0 parent-title"><a href="javascript: void(0);" class="fw-semibold fs-14">User</a></li>
+                                            <li>
+                                                <ul class="list-unstyled second-list row g-0 pt-0">
+                                                    <li class="col-sm-6">
+                                                        <a href="javascript: void(0);" class="fw-semibold sub-title">Nature</a>
+                                                        <ul class="list-unstyled row g-0 second-list">
+                                                            <li class="col-sm-4">
+                                                                <a href="javascript: void(0);">Create Profile</a>
+                                                            </li>
+                                                            <li class="col-sm-4">
+                                                                <a href="javascript: void(0);">Connect to patient with chat / video call</a>
+                                                            </li>
+                                                            <li class="col-sm-4">
+                                                                <a href="javascript: void(0);">Accept Request From Patient</a>
+                                                            </li>
+                                                        </ul>
+                                                    </li>
+                                                    <li class="col-sm-6">
+                                                        <a href="javascript: void(0);" class="fw-semibold sub-title">Patient</a>
+                                                        <ul class="list-unstyled row g-0 second-list">
+                                                            <li class="col-sm-4">
+                                                                <a href="javascript: void(0);">Register</a>
+                                                            </li>
+                                                            <li class="col-sm-4">
+                                                                <a href="javascript: void(0);">SOS</a>
+                                                                <!-- Adding subfields for SOS horizontally -->
+                                                                <ul class="list-inline row g-0 second-list d-flex justify-content-start">
+                                                                    <li class="col-sm-4">
+                                                                        <a href="javascript: void(0);">Emergency Number</a>
+                                                                    </li>
+                                                                    <li class="col-sm-4">
+                                                                        <a href="javascript: void(0);">Help Button</a>
+                                                                    </li>
+                                                                    <li class="col-sm-4">
+                                                                        <a href="javascript: void(0);">Voice Command</a>
+                                                                    </li>
+                                                                </ul>
+                                                            </li>
+                                                            <li class="col-sm-4">
+                                                                <a href="javascript: void(0);">Search Nearby Devices</a>
+                                                            </li>
+                                                        </ul>
+                                                    </li>
+                                                </ul>
+                                            </li>
+                                        </ul>
                                     </div>
                                 </div>
 
-                            </div> <!-- .card-->
-                        </div> <!-- .col-->
-                    </div> <!-- end row -->
 
+                                <!--end card-body-->
+                            </div>
+                            <!--end card-->
+                        </div>
+                        <!--end col-->
+                    </div>
                     <!-- container-fluid -->
                 </div>
                 <!-- End Page-content -->
