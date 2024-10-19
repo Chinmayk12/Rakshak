@@ -347,6 +347,9 @@ if ($jsonData !== false) {
                                         <a href="flow.php" class="nav-link" data-key="t-analytics">Nurse Activity Flow </a>
                                     </li>
                                     <li class="nav-item">
+                                        <a href="disease-cure.php" class="nav-link" data-key="t-analytics">Diseases & Cure</a>
+                                    </li>   
+                                    <li class="nav-item">
                                         <a href="chatbot.php" class="nav-link" data-key="t-analytics">Chat Assistant</a>
                                     </li>
 
